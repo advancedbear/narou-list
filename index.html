@@ -1,0 +1,143 @@
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<head>
+<title>小説家になろう詳細情報取得</title>
+<script type="text/javascript" src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+<script type="text/javascript" src="js.cookie.js"></script>
+<script type="text/javascript">
+
+var storage = localStorage;
+
+var genre = {101:"異世界<br />〔恋愛〕",102:"現実世界<br />〔恋愛〕",201:"ハイファンタジー<br />〔ファンタジー〕",
+                    202:"ローファンタジー<br />〔ファンタジー〕",301:"純文学<br />〔文芸〕",302:"ヒューマンドラマ<br />〔文芸〕",
+                    303:"歴史<br />〔文芸〕",304:"推理<br />〔文芸〕",305:"ホラー<br />〔文芸〕",306:"アクション<br />〔文芸〕",
+                    307:"コメディー<br />〔文芸〕",401:"VRゲーム<br />〔SF〕",402:"宇宙<br />〔SF〕",403:"空想科学<br />〔SF〕",
+                    404:"パニック<br />〔SF〕",9901:"童話<br />〔その他〕",9902:"詩<br />〔その他〕",9903:"エッセイ<br />〔その他〕",
+                    9904:"リプレイ<br />〔その他〕",9999:"その他<br />〔その他〕",9801:"ノンジャンル<br />〔ノンジャンル〕"};
+
+$(function(){
+    var data = storage;
+    console.log(data);
+    for(var key in data){
+        var loadJSON = JSON.parse(data[key]);
+        var loadRow = createRow(key, loadJSON.title, loadJSON.writer, genre[loadJSON.genre], loadJSON.general_firstup, 
+                         loadJSON.general_lastup, loadJSON.general_all_no, loadJSON.length, loadJSON.all_point, +loadJSON.all_hyoka_cnt);
+        $('#list').append(loadRow);
+    }
+        document.getElementById("ncode").focus();
+});
+
+function getData(){
+    var ncode = document.getElementById("ncode").value;
+    document.getElementById("ncode").value = "";
+    if(storage.getItem(ncode)!=null){
+        alert("既に登録されています。");
+    } else {
+        $.ajax({
+            type: 'GET',
+            url: 'http://api.syosetu.com/novelapi/api/?out=jsonp&callback=call&ncode='+ncode,
+            dataType: 'jsonp',
+            jsonpCallback: 'call',
+            success: function(json){
+                console.log(json);
+                if(json.length!=2){
+                    alert("NCODEが間違っています。");
+                } else {
+                    var newRow = createRow(ncode, json[1].title, json[1].writer, genre[json[1].genre], json[1].general_firstup, 
+                                    json[1].general_lastup, json[1].general_all_no, json[1].length, json[1].all_point, +json[1].all_hyoka_cnt);
+                    $('#list').append(newRow);
+                    storage.setItem(ncode, JSON.stringify(json[1]));
+                }
+            }
+        });
+    }
+    document.getElementById("ncode").focus();
+}
+
+function createRow(ncode, title, writer, genre, firstup, lastup, no, length, point, cnt){
+    var Row = '<tr id=\"'+ncode+'\"><td><a href=\"http://ncode.syosetu.com/'+ncode+'\" target=\"_blank\">'+ncode+
+                 '</a></td><td>'+title+'</td><td>'+writer+'</td><td>'+genre+'</td><td>'+firstup+'</td><td>'
+                 +lastup+'</td><td>'+no+'</td><td>'+length+'</td><td>'+point+'</td><td>'+cnt
+                 +'</td><td><input type="button" value="消" onClick="deleteRow(this)"></td></tr>';
+    return Row;
+}
+
+function deleteRow(obj){
+    var ncode = $(obj).parent().parent().attr("id");
+    storage.removeItem(ncode);
+    $(obj).parent().parent().remove();
+}
+
+function createCSV(){
+    var bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    var csv = 'NCODE,タイトル,作者,ジャンル,連載開始日,連載終了日,総話数,総文字数,評価点,評価者数\r\n';
+    var data = storage;
+    for(key in data){
+        var loadJSON = JSON.parse(data[key]);
+        csv = csv + key +','+ loadJSON.title +','+ loadJSON.writer +','+ genre[loadJSON.genre] +','+ loadJSON.general_firstup +','+ 
+            loadJSON.general_lastup +','+ loadJSON.general_all_no +','+ loadJSON.length +','+ loadJSON.all_point +','+loadJSON.all_hyoka_cnt+'\r\n';
+    }
+    csv = csv.split('<br />').join('');
+    var blob = new Blob([ bom, csv ], { "type" : "text/csv" })
+    if (window.navigator.msSaveBlob) { 
+        window.navigator.msSaveBlob(blob, "narou.csv"); 
+
+        // msSaveOrOpenBlobの場合はファイルを保存せずに開ける
+        window.navigator.msSaveOrOpenBlob(blob, "narou.csv"); 
+    } else {
+        document.getElementById("download").href = window.URL.createObjectURL(blob);
+    }
+}
+</script>
+
+<style>
+    table#list {
+        border-collapse: collapse;
+        width: 100%;
+    }
+    #list td, th {
+        border: solid 1px #333;
+    }
+
+    #list tr td:nth-child(2){
+        width: 15em;
+    }
+
+    a #download{
+        text-align: right;
+    }
+</style>
+
+</head>
+
+<body>
+<div class="wrapper">
+    <div class="main">
+        <H1>小説家になろう 詳細情報取得ツール</H1>
+        <hr />
+        <form name="input_ncode">
+            <input type="text" id="ncode"><input type="button" value="取得" onClick="getData()">
+        </form>
+        <a href="#" id="download" download="narou.csv" onClick="createCSV()">CSV形式でダウンロード</a>
+        <hr />
+        <table id="list">
+            <tr>
+                <th style="width: 5ex">NCODE</th>
+                <th style="width: 15em">タイトル</th>
+                <th style="width: 10ex">作者</th>
+                <th style="width: 5em">ジャンル</th>
+                <th style="width: 10ex">連載開始日</th>
+                <th style="width: 10ex">連載終了日</th>
+                <th style="width: 10ex">総話数</th>
+                <th style="width: 10ex">総文字数</th>
+                <th style="width: 10ex">評価点</th>
+                <th style="width: 10ex">評価者数</th>
+                <th style="width: 2em"></th>
+            </tr>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>
