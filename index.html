@@ -4,7 +4,6 @@
 <head>
 <title>小説家になろう詳細情報取得</title>
 <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
-<script type="text/javascript" src="js.cookie.js"></script>
 <script type="text/javascript">
 
 var storage = localStorage;
@@ -16,19 +15,34 @@ var genre = {101:"異世界<br />〔恋愛〕",102:"現実世界<br />〔恋愛�
                     404:"パニック<br />〔SF〕",9901:"童話<br />〔その他〕",9902:"詩<br />〔その他〕",9903:"エッセイ<br />〔その他〕",
                     9904:"リプレイ<br />〔その他〕",9999:"その他<br />〔その他〕",9801:"ノンジャンル<br />〔ノンジャンル〕"};
 
+var newLine = new Array();
+
 $(function(){
-    var data = storage;
-    console.log(data);
-    for(var key in data){
-        var loadJSON = JSON.parse(data[key]);
-        var loadRow = createRow(key, loadJSON.title, loadJSON.writer, genre[loadJSON.genre], loadJSON.general_firstup, 
-                         loadJSON.general_lastup, loadJSON.general_all_no, loadJSON.length, loadJSON.all_point, +loadJSON.all_hyoka_cnt);
+    var loadJSON = new Array();
+    for(key in storage){
+        loadJSON[key] = JSON.parse(storage[key]);
+        newLine.push(key);
+    }
+    newLine.sort(function(a,b){
+        return (new Date(loadJSON[a].general_lastup).getTime() < new Date(loadJSON[b].general_lastup).getTime()) ? -1 : 1;
+    });
+    for(var i=0; i<newLine.length; i++){
+        var loadRow = createRow(newLine[i], loadJSON[newLine[i]].title, loadJSON[newLine[i]].writer, genre[loadJSON[newLine[i]].genre], 
+                        loadJSON[newLine[i]].general_firstup, loadJSON[newLine[i]].general_lastup, loadJSON[newLine[i]].general_all_no,
+                        loadJSON[newLine[i]].length, loadJSON[newLine[i]].all_point, loadJSON[newLine[i]].all_hyoka_cnt);
         $('#list').append(loadRow);
     }
-        document.getElementById("ncode").focus();
+    document.getElementById("ncode").focus();
+
+    $('#ncode').keypress(function(e){
+        if(e.which == 13){
+            getData();
+        }
+    });
 });
 
 function getData(){
+    console.log("pressed");
     var ncode = document.getElementById("ncode").value;
     document.getElementById("ncode").value = "";
     if(storage.getItem(ncode)!=null){
@@ -72,18 +86,19 @@ function deleteRow(obj){
 function createCSV(){
     var bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
     var csv = 'NCODE,タイトル,作者,ジャンル,連載開始日,連載終了日,総話数,総文字数,評価点,評価者数\r\n';
-    var data = storage;
-    for(key in data){
-        var loadJSON = JSON.parse(data[key]);
-        csv = csv + key +','+ loadJSON.title +','+ loadJSON.writer +','+ genre[loadJSON.genre] +','+ loadJSON.general_firstup +','+ 
-            loadJSON.general_lastup +','+ loadJSON.general_all_no +','+ loadJSON.length +','+ loadJSON.all_point +','+loadJSON.all_hyoka_cnt+'\r\n';
+    var loadJSON = new Array();
+    for(key in storage){
+        loadJSON[key] = JSON.parse(storage[key]);
+    }
+    for(var i=0; i<newLine.length; i++){
+        csv = csv + newLine[i] +','+ loadJSON[newLine[i]].title +','+ loadJSON[newLine[i]].writer +','+ genre[loadJSON[newLine[i]].genre] +','+ 
+                        loadJSON[newLine[i]].general_firstup +','+ loadJSON[newLine[i]].general_lastup +','+ loadJSON[newLine[i]].general_all_no +','+ 
+                        loadJSON[newLine[i]].length +','+ loadJSON[newLine[i]].all_point +','+ loadJSON[newLine[i]].all_hyoka_cnt+'\r\n';
     }
     csv = csv.split('<br />').join('');
     var blob = new Blob([ bom, csv ], { "type" : "text/csv" })
     if (window.navigator.msSaveBlob) { 
         window.navigator.msSaveBlob(blob, "narou.csv"); 
-
-        // msSaveOrOpenBlobの場合はファイルを保存せずに開ける
         window.navigator.msSaveOrOpenBlob(blob, "narou.csv"); 
     } else {
         document.getElementById("download").href = window.URL.createObjectURL(blob);
@@ -116,9 +131,7 @@ function createCSV(){
     <div class="main">
         <H1>小説家になろう 詳細情報取得ツール</H1>
         <hr />
-        <form name="input_ncode">
-            <input type="text" id="ncode"><input type="button" value="取得" onClick="getData()">
-        </form>
+        <input type="text" id="ncode"><input type="button" value="取得" onClick="getData()">
         <a href="#" id="download" download="narou.csv" onClick="createCSV()">CSV形式でダウンロード</a>
         <hr />
         <table id="list">
